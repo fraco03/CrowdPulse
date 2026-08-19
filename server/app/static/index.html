@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>CrowdPulse</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent}
+body{background:#050B14;color:#F8FAFC;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:16px}
+h1{color:#00E5FF;font-size:26px;font-weight:900;letter-spacing:3px;margin-bottom:2px}
+.sub{color:#475569;font-size:11px;margin-bottom:16px;text-align:center}
+.card{background:#0B1628;border:1px solid #1E293B;border-radius:16px;padding:16px;width:100%;max-width:400px;margin-bottom:12px}
+.row{display:flex;gap:8px;margin-bottom:10px}
+input{flex:1;background:#1E293B;border:1px solid #334155;border-radius:10px;padding:12px;color:#FFF;font-size:15px;outline:none}
+input:focus{border-color:#00E5FF}
+.btn{background:#00E5FF;color:#050B14;border:none;border-radius:10px;padding:14px;font-weight:900;font-size:15px;cursor:pointer;width:100%;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.btn:active{opacity:.8}
+.btn-red{background:#EF4444;color:#FFF;padding:7px 14px;font-size:12px;width:auto;border-radius:8px;border:none;font-weight:800;cursor:pointer;touch-action:manipulation}
+.badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:800;background:#1E293B;color:#38BDF8}
+.badge-ok{background:#052E16!important;color:#34D399!important;border:1px solid #059669}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.info-row{background:#07101E;border:1px solid #1E293B;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:11px;color:#64748B;display:flex;justify-content:space-between}
+.info-row b{color:#CBD5E1}
+
+/* RADAR */
+.radar-wrap{width:240px;height:240px;margin:0 auto 8px}
+svg.radar{width:240px;height:240px}
+
+/* DISTANZA */
+.dist-val{font-size:56px;font-weight:900;text-align:center;line-height:1;color:#FFF;margin-top:4px}
+.dist-lbl{font-size:11px;font-weight:800;text-align:center;color:#00E5FF;letter-spacing:3px;margin-bottom:4px}
+.dist-src{font-size:10px;text-align:center;color:#475569;margin-bottom:12px}
+
+/* LOG */
+.logbox{background:#050B14;border:1px solid #1E293B;border-radius:8px;padding:8px;font-family:monospace;font-size:10px;color:#475569;height:110px;overflow-y:auto}
+.hl{color:#00FF66;font-weight:bold}
+.err{color:#F87171}
+.ok{color:#34D399;font-weight:bold}
+</style>
+</head>
+<body>
+
+<h1>CROWDPULSE</h1>
+<div class="sub">Localizzazione reciproca GPS</div>
+
+<!-- SETUP -->
+<div class="card" id="setupCard">
+  <div class="row">
+    <input id="roomCode" placeholder="Codice stanza" value="FEST24">
+    <input id="peerId" placeholder="Mio ID" value="phone_user">
+  </div>
+  <button class="btn" id="btnConnect" type="button">CONNETTI</button>
+</div>
+
+<!-- TRACKING -->
+<div class="card" id="trackCard" style="display:none">
+  <div class="topbar">
+    <span class="badge" id="statusBadge">In connessione...</span>
+    <button class="btn-red" id="btnDisconnect" type="button">ESCI</button>
+  </div>
+
+  <div class="info-row">
+    <span>Stanza: <b id="infoRoom">-</b></span>
+    <span>ID: <b id="infoId">-</b></span>
+    <span>Peer: <b id="infoPeer">no</b></span>
+  </div>
+
+  <!-- SVG RADAR -->
+  <div class="radar-wrap">
+    <svg class="radar" viewBox="0 0 240 240">
+      <defs>
+        <radialGradient id="rg" cx="50%" cy="50%">
+          <stop offset="0%" stop-color="#0F1E35"/>
+          <stop offset="100%" stop-color="#050B14"/>
+        </radialGradient>
+        <filter id="gl">
+          <feGaussianBlur stdDeviation="3" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- sfondo -->
+      <circle cx="120" cy="120" r="118" fill="url(#rg)" stroke="#1E293B" stroke-width="1.5"/>
+      <!-- anelli -->
+      <circle cx="120" cy="120" r="88" fill="none" stroke="#1E2D45" stroke-width="1" stroke-dasharray="4 6"/>
+      <circle cx="120" cy="120" r="56" fill="none" stroke="#1E2D45" stroke-width="1" stroke-dasharray="4 6"/>
+      <circle cx="120" cy="120" r="24" fill="none" stroke="#1E2D45" stroke-width="1" stroke-dasharray="4 6"/>
+      <!-- crocetta -->
+      <line x1="120" y1="2" x2="120" y2="238" stroke="#1E293B" stroke-width="1"/>
+      <line x1="2" y1="120" x2="238" y2="120" stroke="#1E293B" stroke-width="1"/>
+      <!-- cardinali -->
+      <text x="120" y="16" text-anchor="middle" fill="#334155" font-size="12" font-weight="700">N</text>
+      <text x="120" y="238" text-anchor="middle" fill="#334155" font-size="12" font-weight="700">S</text>
+      <text x="7"   y="124" text-anchor="start" fill="#334155" font-size="12" font-weight="700">W</text>
+      <text x="233" y="124" text-anchor="end"   fill="#334155" font-size="12" font-weight="700">E</text>
+
+      <!-- peer dot (nascosto finché non c'è posizione) -->
+      <circle id="peerDot" cx="120" cy="120" r="10" fill="#00E5FF" opacity="0" filter="url(#gl)"/>
+      <circle id="peerDotCore" cx="120" cy="120" r="5" fill="#FFF" opacity="0"/>
+
+      <!-- ago bussola (ruota col heading) -->
+      <g id="needle" transform="rotate(0,120,120)" opacity="0.3">
+        <polygon points="120,28 115,120 125,120" fill="#00E5FF"/>
+        <polygon points="120,212 115,120 125,120" fill="#EF4444" opacity="0.6"/>
+        <circle cx="120" cy="120" r="6" fill="#0B1628" stroke="#00E5FF" stroke-width="1.5"/>
+      </g>
+
+      <!-- tu (centro) -->
+      <circle cx="120" cy="120" r="8" fill="#0F172A" stroke="#00E5FF" stroke-width="2"/>
+      <circle cx="120" cy="120" r="3" fill="#00E5FF"/>
+    </svg>
+  </div>
+
+  <div class="dist-val" id="distVal">--</div>
+  <div class="dist-lbl">METRI</div>
+  <div class="dist-src" id="distSrc">In attesa del peer...</div>
+
+  <div class="logbox" id="logBox"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+// Stato
+var ws = null, watchId = null;
+var myLat = null, myLon = null;
+var peerLat = null, peerLon = null;
+var heading = 0;
+var room = '', peerId = '';
+var RADAR_R = 88, MAX_M = 200;
+
+// Log
+function log(msg, cls){
+  var b = document.getElementById('logBox');
+  if(!b) return;
+  var d = document.createElement('div');
+  if(cls) d.className = cls;
+  d.textContent = '[' + new Date().toLocaleTimeString('it-IT') + '] ' + msg;
+  b.appendChild(d);
+  b.scrollTop = b.scrollHeight;
+}
+
+// Haversine
+function haversine(la1,lo1,la2,lo2){
+  var R=6371000, r=Math.PI/180;
+  var dLat=(la2-la1)*r, dLon=(lo2-lo1)*r;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// Bearing
+function bearing(la1,lo1,la2,lo2){
+  var r=Math.PI/180;
+  var y=Math.sin((lo2-lo1)*r)*Math.cos(la2*r);
+  var x=Math.cos(la1*r)*Math.sin(la2*r)-Math.sin(la1*r)*Math.cos(la2*r)*Math.cos((lo2-lo1)*r);
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+
+// Aggiorna radar + distanza
+function updateUI(){
+  // Bussola: ruota ago del negativo dell'heading (così il Nord resta in alto)
+  var needle = document.getElementById('needle');
+  if(needle){
+    needle.setAttribute('transform','rotate('+( (-heading+360)%360 )+',120,120)');
+    needle.setAttribute('opacity','1');
+  }
+
+  if(myLat===null || peerLat===null) return;
+
+  var dist = haversine(myLat,myLon,peerLat,peerLon);
+  var brng = bearing(myLat,myLon,peerLat,peerLon);
+
+  // Angolo relativo al mio heading
+  var relRad = ((brng - heading + 360) % 360) * Math.PI/180;
+  var r = Math.min(dist/MAX_M, 1) * RADAR_R;
+  var cx = (120 + r*Math.sin(relRad)).toFixed(1);
+  var cy = (120 - r*Math.cos(relRad)).toFixed(1);
+
+  var dot = document.getElementById('peerDot');
+  var core = document.getElementById('peerDotCore');
+  if(dot){ dot.setAttribute('cx',cx); dot.setAttribute('cy',cy); dot.setAttribute('opacity','1'); }
+  if(core){ core.setAttribute('cx',cx); core.setAttribute('cy',cy); core.setAttribute('opacity','1'); }
+
+  // Distanza display
+  var txt = dist < 1000 ? dist.toFixed(1) : (dist/1000).toFixed(2)+'k';
+  var col = dist<10 ? '#00FF66' : dist<50 ? '#22D3EE' : dist<200 ? '#FBBF24' : '#FFF';
+  var dv = document.getElementById('distVal');
+  if(dv){ dv.textContent = txt; dv.style.color = col; }
+  var ds = document.getElementById('distSrc');
+  if(ds) ds.textContent = 'GPS · brg '+brng.toFixed(0)+'°';
+}
+
+// Orientamento dispositivo
+window.addEventListener('deviceorientation', function(e){
+  if(e.webkitCompassHeading != null) heading = e.webkitCompassHeading;
+  else if(e.alpha != null) heading = (360 - e.alpha) % 360;
+  updateUI();
+}, true);
+
+// Invia posizione via WS
+function sendLoc(){
+  if(!ws || ws.readyState !== WebSocket.OPEN || myLat===null) return;
+  ws.send(JSON.stringify({
+    type:'location',
+    payload:{ latitude:myLat, longitude:myLon, accuracy:10, heading:heading, speed:0, timestamp:Date.now()/1000 }
+  }));
+}
+
+// GPS
+function startGps(){
+  if(!navigator.geolocation){ log('GPS non disponibile','err'); return; }
+  log('Richiedo GPS...');
+  navigator.geolocation.getCurrentPosition(function(p){
+    myLat = p.coords.latitude; myLon = p.coords.longitude;
+    log('GPS: '+myLat.toFixed(5)+', '+myLon.toFixed(5), 'ok');
+    sendLoc();
+  }, function(e){ log('GPS: '+e.message,'err'); }, {enableHighAccuracy:true,timeout:10000});
+
+  watchId = navigator.geolocation.watchPosition(function(p){
+    myLat = p.coords.latitude; myLon = p.coords.longitude;
+    sendLoc(); updateUI();
+  }, function(e){ log('GPS watch: '+e.message,'err'); }, {enableHighAccuracy:true,maximumAge:2000,timeout:15000});
+}
+
+// Bussola iOS
+function reqCompass(){
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function')
+    DeviceOrientationEvent.requestPermission().catch(function(){});
+}
+
+// WebSocket
+function connect(){
+  var proto = location.protocol==='https:' ? 'wss:' : 'ws:';
+  var url = proto+'//'+location.host+'/ws/'+room+'/'+peerId;
+  log('Connessione a '+url+'...');
+  ws = new WebSocket(url);
+
+  ws.onopen = function(){
+    log('Connesso!','ok');
+    document.getElementById('statusBadge').textContent = 'CONNESSO';
+    document.getElementById('statusBadge').className = 'badge badge-ok';
+    sendLoc();
+  };
+
+  ws.onclose = function(){
+    log('Disconnesso.','err');
+    document.getElementById('statusBadge').textContent = 'Disconnesso';
+    document.getElementById('statusBadge').className = 'badge';
+    document.getElementById('infoPeer').textContent = 'no';
+  };
+
+  ws.onerror = function(){ log('Errore WebSocket.','err'); };
+
+  ws.onmessage = function(ev){
+    var data; try{ data=JSON.parse(ev.data); }catch(e){ return; }
+    var t=data.type, pl=data.payload||{};
+
+    if(t==='peer_location'){
+      if(pl.latitude!==undefined){
+        peerLat=pl.latitude; peerLon=pl.longitude;
+        updateUI();
+      }
+    } else if(t==='peer_joined'){
+      log('Peer entrato nella stanza!','ok');
+      document.getElementById('infoPeer').textContent = 'si';
+    } else if(t==='peer_left'){
+      log('Peer uscito.','err');
+      document.getElementById('infoPeer').textContent = 'no';
+      peerLat=null; peerLon=null;
+      var dv=document.getElementById('distVal'); if(dv){dv.textContent='--';dv.style.color='#FFF';}
+      var ds=document.getElementById('distSrc'); if(ds)ds.textContent='Peer disconnesso';
+      var dot=document.getElementById('peerDot'); if(dot)dot.setAttribute('opacity','0');
+      var core=document.getElementById('peerDotCore'); if(core)core.setAttribute('opacity','0');
+    } else if(t==='room_full'){
+      alert('Stanza piena! Usa un codice diverso.');
+      disconnect();
+    }
+  };
+}
+
+// Start / stop
+function startTracking(){
+  room   = (document.getElementById('roomCode').value||'').trim() || 'FEST24';
+  peerId = (document.getElementById('peerId').value||'').trim()   || 'phone_user';
+  document.getElementById('infoRoom').textContent = room;
+  document.getElementById('infoId').textContent   = peerId;
+  document.getElementById('setupCard').style.display  = 'none';
+  document.getElementById('trackCard').style.display  = 'block';
+  connect();
+  startGps();
+  reqCompass();
+}
+
+function disconnect(){
+  if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+  if(ws){ ws.close(); ws=null; }
+  peerLat=null; peerLon=null;
+  document.getElementById('setupCard').style.display = 'block';
+  document.getElementById('trackCard').style.display  = 'none';
+}
+
+// Bottoni
+function addBtn(id, fn){
+  var el = document.getElementById(id); if(!el) return;
+  el.addEventListener('click', fn);
+  el.addEventListener('touchend', function(e){ e.preventDefault(); fn(); });
+}
+addBtn('btnConnect',    startTracking);
+addBtn('btnDisconnect', disconnect);
+
+})();
+</script>
+</body>
+</html>
